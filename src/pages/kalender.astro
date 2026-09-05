@@ -56,12 +56,20 @@ const filters: { label: string; value: Status | null }[] = [
 <Layout title="Content-Kalender">
   <div class="flex flex-wrap items-center justify-between gap-4">
     <h1 class="text-2xl font-semibold tracking-tight">Content-Kalender</h1>
-    <a
-      href={`${base}api/export${activeStatus ? `?status=${activeStatus}` : ''}`}
-      class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-    >
-      Als CSV exportieren
-    </a>
+    <div class="flex gap-2">
+      <a
+        href={`${base}api/export${activeStatus ? `?status=${activeStatus}` : ''}`}
+        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+      >
+        Als CSV exportieren
+      </a>
+      <button
+        id="delete-all-btn"
+        class="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+      >
+        Alle Entwürfe/Freigaben löschen
+      </button>
+    </div>
   </div>
 
   <div class="mt-4 flex gap-1.5">
@@ -204,5 +212,32 @@ const filters: { label: string; value: Status | null }[] = [
         btn.textContent = data.error || 'Fehler – erneut versuchen';
       }
     });
+  });
+
+  const deleteAllBtn = document.getElementById('delete-all-btn') as HTMLButtonElement | null;
+  deleteAllBtn?.addEventListener('click', async () => {
+    if (!confirm('Wirklich ALLE Posts mit Status "Entwurf" oder "Freigegeben" löschen? Veröffentlichte Posts bleiben erhalten. Das kann nicht rückgängig gemacht werden.')) {
+      return;
+    }
+    if (!confirm('Bist du sicher? Dieser Schritt ist endgültig.')) {
+      return;
+    }
+
+    deleteAllBtn.disabled = true;
+    deleteAllBtn.textContent = 'Wird gelöscht...';
+
+    const res = await fetch(`${base}api/delete-all`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      location.reload();
+    } else {
+      deleteAllBtn.disabled = false;
+      deleteAllBtn.textContent = data.error || 'Fehler – erneut versuchen';
+    }
   });
 </script>
