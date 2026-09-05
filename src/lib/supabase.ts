@@ -35,6 +35,8 @@ export interface Profile {
   phone: string | null;
   avatar_url: string | null;
   plan: 'free' | 'paid';
+  is_admin: boolean;
+  is_superadmin: boolean;
   created_at: string;
 }
 

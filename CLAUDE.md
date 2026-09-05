@@ -17,7 +17,11 @@ Service oder für die eigene Nutzung.
 - Nicht angemeldete Besucher sehen auf der Startseite einen Infotext statt des Formulars: Parametrisierung (Anzahl/Textlänge pro Plattform) und automatisiertes Posting sind bezahlten Plänen vorbehalten
 - Free/Paid-Gate ist aktuell ein manuelles Feld `profiles.plan` (`free`/`paid`) — Stripe-Anbindung folgt später, Code ist aber schon darauf vorbereitet
 - Free-Plan ist auf **LinkedIn + Facebook** fix eingeschränkt (`FREE_PLAN_PLATFORMS` in `src/lib/supabase.ts`) — `/einstellungen` zeigt Free-Usern nur einen Hinweistext statt der Auswahl, und `getEffectiveSettings()` ignoriert bei `plan = 'free'` jede gespeicherte `platform_settings`-Zeile serverseitig (auch bei einem Downgrade von paid auf free bleiben alte Einstellungen nur "eingefroren", nicht wirksam, bis wieder auf paid gewechselt wird)
-- Superadmin-Bereich (`/admin`, `profiles.is_admin`): Nutzerliste mit Plan-Umschalter. Kein Admin ist per Default gesetzt — der erste Admin muss einmalig direkt in der DB markiert werden (`UPDATE profiles SET is_admin = true WHERE email = '...'`), danach kann er weitere über die `/admin`-Oberfläche verwalten (Plan-Umschaltung; `is_admin` selbst ist dort aktuell nicht änderbar)
+- Admin-Bereich (`/admin`, `profiles.is_admin` / `profiles.is_superadmin`): zweistufige Rollenhierarchie
+  - **Admin** (`is_admin`): sieht Nutzerliste, schaltet Plan (free/paid) um, kann andere User zu Admin befördern/degradieren (außer Superadmins), kann normale User löschen — **aber keine Admin-Accounts**
+  - **Superadmin** (`is_superadmin`, impliziert `is_admin`): zusätzlich: kann Admin-Accounts löschen und den Status anderer Superadmins ändern
+  - Niemand kann sich selbst löschen oder den eigenen Admin-Status ändern (serverseitig blockiert in `src/pages/api/admin/set-admin.ts` und `delete-user.ts`)
+  - Kein Admin ist per Default gesetzt — der erste Superadmin muss einmalig direkt in der DB markiert werden (`UPDATE profiles SET is_admin = true, is_superadmin = true WHERE email = '...'`); aktuell ist das `ckoenig100@gmail.com`
 
 ## Datenbank-Schema (Supabase)
 
