@@ -35,7 +35,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     });
   }
 
-  const { data: target } = await supabase.from('profiles').select('is_admin').eq('id', userId).single();
+  const { data: target } = await supabase.from('profiles').select('is_admin, is_superadmin').eq('id', userId).single();
+
+  if (target?.is_superadmin) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Ein Superadmin-Account kann nicht gelöscht werden.' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
 
   if (target?.is_admin && !caller.is_superadmin) {
     return new Response(

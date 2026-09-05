@@ -37,8 +37,9 @@ const users = (data ?? []) as Profile[];
         {
           users.map((u) => {
             const isSelf = u.id === user.id;
-            const canChangeAdmin = !isSelf && (!u.is_superadmin || me.is_superadmin);
-            const canDelete = !isSelf && (!u.is_admin || me.is_superadmin);
+            const canChangePlan = !u.is_superadmin;
+            const canChangeAdmin = !isSelf && !u.is_superadmin;
+            const canDelete = !isSelf && !u.is_superadmin && (!u.is_admin || me.is_superadmin);
 
             return (
               <tr>
@@ -62,13 +63,15 @@ const users = (data ?? []) as Profile[];
                   >
                     {u.plan === 'paid' ? 'Bezahlt' : 'Kostenlos'}
                   </span>
-                  <button
-                    data-user-id={u.id}
-                    data-current-plan={u.plan}
-                    class="toggle-plan-btn ml-2 rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    → {u.plan === 'paid' ? 'Kostenlos' : 'Bezahlt'}
-                  </button>
+                  {canChangePlan && (
+                    <button
+                      data-user-id={u.id}
+                      data-current-plan={u.plan}
+                      class="toggle-plan-btn ml-2 rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      → {u.plan === 'paid' ? 'Kostenlos' : 'Bezahlt'}
+                    </button>
+                  )}
                 </td>
                 <td class="px-4 py-2">
                   {canChangeAdmin ? (
@@ -80,7 +83,9 @@ const users = (data ?? []) as Profile[];
                       {u.is_admin ? 'Admin entfernen' : 'Zu Admin machen'}
                     </button>
                   ) : (
-                    !isSelf && <span class="text-xs text-slate-300">nur Superadmin</span>
+                    !isSelf && (
+                      <span class="text-xs text-slate-300">{u.is_superadmin ? 'unveränderlich' : 'nur Superadmin'}</span>
+                    )
                   )}
                 </td>
                 <td class="px-4 py-2">
@@ -92,7 +97,9 @@ const users = (data ?? []) as Profile[];
                       Löschen
                     </button>
                   ) : (
-                    !isSelf && <span class="text-xs text-slate-300">nur Superadmin</span>
+                    !isSelf && (
+                      <span class="text-xs text-slate-300">{u.is_superadmin ? 'unveränderlich' : 'nur Superadmin'}</span>
+                    )
                   )}
                 </td>
               </tr>

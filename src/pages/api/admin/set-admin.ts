@@ -13,11 +13,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     });
   }
 
-  const { data: caller } = await supabase
-    .from('profiles')
-    .select('is_admin, is_superadmin')
-    .eq('id', user.id)
-    .single();
+  const { data: caller } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
 
   if (!caller?.is_admin) {
     return new Response(JSON.stringify({ success: false, error: 'Kein Admin-Zugriff.' }), {
@@ -37,9 +33,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   const { data: target } = await supabase.from('profiles').select('is_superadmin').eq('id', userId).single();
 
-  if (target?.is_superadmin && !caller.is_superadmin) {
+  if (target?.is_superadmin) {
     return new Response(
-      JSON.stringify({ success: false, error: 'Nur der Superadmin kann den Status eines Superadmins ändern.' }),
+      JSON.stringify({ success: false, error: 'Der Status eines Superadmins kann nicht geändert werden.' }),
       { status: 403, headers: { 'Content-Type': 'application/json' } }
     );
   }

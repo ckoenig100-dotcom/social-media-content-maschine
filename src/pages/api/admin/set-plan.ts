@@ -29,6 +29,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     });
   }
 
+  const { data: target } = await supabase.from('profiles').select('is_superadmin').eq('id', userId).single();
+  if (target?.is_superadmin) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Der Plan eines Superadmins kann nicht geändert werden.' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
   const { error } = await supabase.from('profiles').update({ plan }).eq('id', userId);
 
   if (error) {
