@@ -16,6 +16,7 @@ Service oder für die eigene Nutzung.
 - Jeder Post gehört einem `user_id` (content_kalender.user_id) — Kalender, Export, Freigeben/Löschen sind pro User isoliert
 - Nicht angemeldete Besucher sehen auf der Startseite einen Infotext statt des Formulars: Parametrisierung (Anzahl/Textlänge pro Plattform) und automatisiertes Posting sind bezahlten Plänen vorbehalten
 - Free/Paid-Gate ist aktuell ein manuelles Feld `profiles.plan` (`free`/`paid`) — Stripe-Anbindung folgt später, Code ist aber schon darauf vorbereitet
+- Superadmin-Bereich (`/admin`, `profiles.is_admin`): Nutzerliste mit Plan-Umschalter. Kein Admin ist per Default gesetzt — der erste Admin muss einmalig direkt in der DB markiert werden (`UPDATE profiles SET is_admin = true WHERE email = '...'`), danach kann er weitere über die `/admin`-Oberfläche verwalten (Plan-Umschaltung; `is_admin` selbst ist dort aktuell nicht änderbar)
 
 ## Datenbank-Schema (Supabase)
 
@@ -35,6 +36,7 @@ Service oder für die eigene Nutzung.
 - name, email, phone: text
 - avatar_url: text (Supabase Storage Bucket `avatars`, Pfad `{user_id}/avatar.*`)
 - plan: text ('free' | 'paid'), Default 'free'
+- is_admin: boolean, Default false
 - created_at: timestamptz (auto)
 
 ### `platform_settings`

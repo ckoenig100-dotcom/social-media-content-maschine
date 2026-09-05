@@ -1,0 +1,99 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getCurrentUser } from '../lib/auth';
+import { supabase, type Profile } from '../lib/supabase';
+
+export const prerender = false;
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
+const user = await getCurrentUser(Astro.cookies);
+if (!user) return Astro.redirect(`${base}login`);
+
+const { data: myProfile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
+if (!myProfile?.is_admin) return Astro.redirect(base);
+
+const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+const users = (data ?? []) as (Profile & { is_admin: boolean })[];
+---
+
+<Layout title="Admin">
+  <h1 class="text-2xl font-semibold tracking-tight">Nutzerverwaltung</h1>
+  <p class="mt-1 text-sm text-slate-500">{users.length} registrierte Nutzer.</p>
+
+  <div class="mt-6 overflow-x-auto rounded-lg border border-slate-200">
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead class="bg-slate-50">
+        <tr>
+          <th class="px-4 py-2 text-left font-medium text-slate-600">Name</th>
+          <th class="px-4 py-2 text-left font-medium text-slate-600">E-Mail</th>
+          <th class="px-4 py-2 text-left font-medium text-slate-600">Telefon</th>
+          <th class="px-4 py-2 text-left font-medium text-slate-600">Registriert</th>
+          <th class="px-4 py-2 text-left font-medium text-slate-600">Plan</th>
+          <th class="px-4 py-2 text-left font-medium text-slate-600"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {
+          users.map((u) => (
+            <tr>
+              <td class="px-4 py-2">
+                {u.name || '–'}
+                {u.is_admin && <span class="ml-2 rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-medium text-white">ADMIN</span>}
+              </td>
+              <td class="px-4 py-2 text-slate-600">{u.email}</td>
+              <td class="px-4 py-2 text-slate-600">{u.phone || '–'}</td>
+              <td class="px-4 py-2 text-slate-500">{new Date(u.created_at).toLocaleDateString('de-DE')}</td>
+              <td class="px-4 py-2">
+                <span
+                  class={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    u.plan === 'paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {u.plan === 'paid' ? 'Bezahlt' : 'Kostenlos'}
+                </span>
+              </td>
+              <td class="px-4 py-2">
+                <button
+                  data-user-id={u.id}
+                  data-current-plan={u.plan}
+                  class="toggle-plan-btn rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Auf {u.plan === 'paid' ? 'Kostenlos' : 'Bezahlt'} setzen
+                </button>
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+</Layout>
+
+<script>
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
+
+  document.querySelectorAll<HTMLButtonElement>('.toggle-plan-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const userId = btn.dataset.userId;
+      const currentPlan = btn.dataset.currentPlan;
+      const newPlan = currentPlan === 'paid' ? 'free' : 'paid';
+
+      btn.disabled = true;
+      btn.textContent = 'Wird gespeichert...';
+
+      const res = await fetch(`${base}api/admin/set-plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, plan: newPlan })
+      });
+
+      if (res.ok) {
+        location.reload();
+      } else {
+        const data = await res.json();
+        btn.disabled = false;
+        btn.textContent = data.error || 'Fehler';
+      }
+    });
+  });
+</script>

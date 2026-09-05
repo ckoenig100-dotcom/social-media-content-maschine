@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import Footer from '../components/Footer.astro';
 import { getCurrentUser } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 
 interface Props {
   title: string;
@@ -15,10 +16,16 @@ const kalenderHref = `${base}kalender`;
 const monatHref = `${base}kalender-monat`;
 const profilHref = `${base}profil`;
 const einstellungenHref = `${base}einstellungen`;
+const adminHref = `${base}admin`;
 const loginHref = `${base}login`;
 const registrierenHref = `${base}registrieren`;
 
 const user = await getCurrentUser(Astro.cookies);
+let isAdmin = false;
+if (user) {
+  const { data } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
+  isAdmin = data?.is_admin ?? false;
+}
 
 function isActive(href: string) {
   return path === href.replace(/\/$/, '') ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100';
@@ -74,6 +81,11 @@ function isActive(href: string) {
               <a href={profilHref} class={`rounded-md px-3 py-1.5 transition-colors ${isActive(profilHref)}`}>
                 Profil
               </a>
+              {isAdmin && (
+                <a href={adminHref} class={`rounded-md px-3 py-1.5 transition-colors ${isActive(adminHref)}`}>
+                  Admin
+                </a>
+              )}
               <button
                 id="logout-btn"
                 class="rounded-md px-3 py-1.5 text-slate-600 transition-colors hover:bg-slate-100"
