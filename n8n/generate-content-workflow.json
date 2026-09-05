@@ -20,6 +20,19 @@
     },
     {
       "parameters": {
+        "jsCode": "const platforms = $json.body.platforms || [];\n\nconst styleGuides = {\n  linkedin: 'Professionell, Storytelling, Hook im ersten Satz, 3\\u20135 Hashtags',\n  instagram: 'Kurz, emotional, Call-to-Action, 10\\u201315 Hashtags, Emoji-freundlich, Abs\\u00e4tze mit Leerzeilen',\n  x: 'Knapp, Hook in den ersten Worten, 2\\u20133 Hashtags, kontroverse Meinungen funktionieren',\n  facebook: 'Mittellang, Fragen stellen, Community-orientiert, pers\\u00f6nlicher Ton'\n};\n\nconst platformNames = {\n  linkedin: 'LinkedIn',\n  instagram: 'Instagram',\n  x: 'X (Twitter)',\n  facebook: 'Facebook'\n};\n\nconst active = platforms.filter((p) => p.count > 0);\nconst totalPosts = active.reduce((sum, p) => sum + p.count, 0);\n\nconst platformLines = active\n  .map((p) => `- ${platformNames[p.platform] || p.platform}: ${p.count} Post(s), Zeichenl\\u00e4nge zwischen ${p.minLength} und ${p.maxLength} Zeichen. Stil: ${styleGuides[p.platform] || ''}`)\n  .join('\\n');\n\nconst systemPrompt = `Du bist ein Social-Media-Experte. Erstelle aus dem folgenden Thema genau ${totalPosts} Posts, aufgeteilt wie folgt:\\n\\n${platformLines}\\n\\nJeder Post ist auf die jeweilige Plattform optimiert und h\\u00e4lt sich an die angegebene Zeichenl\\u00e4nge.\\n\\nRufe das Tool output_posts mit allen ${totalPosts} Posts im posts-Array auf.`;\n\nreturn [{ json: { ...$json, systemPrompt, totalPosts } }];"
+      },
+      "id": "a1b2c3d4-0007-4000-8000-000000000007",
+      "name": "Build System Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -280,
+        0
+      ]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://api.anthropic.com/v1/messages",
         "authentication": "genericCredentialType",
@@ -39,7 +52,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  model: \"claude-sonnet-4-5\",\n  max_tokens: 8192,\n  system: \"Du bist ein Social-Media-Experte. Erstelle aus dem folgenden Thema genau 10 Posts: 3 für LinkedIn, 3 für Instagram, 2 für X, 2 für Facebook. Jeder Post ist auf die Plattform optimiert.\\n\\nPlattform-Anforderungen:\\n- LinkedIn: Professionell, Storytelling, 1.000–1.500 Zeichen, 3–5 Hashtags, Hook im ersten Satz\\n- Instagram: Kurz, emotional, Call-to-Action, 10–15 Hashtags, Emoji-freundlich, Absätze mit Leerzeilen\\n- X (Twitter): Knapp, Hook in den ersten Worten, max 280 Zeichen, 2–3 Hashtags, kontroverse Meinungen funktionieren\\n- Facebook: Mittellang, Fragen stellen, Community-orientiert, persönlicher Ton\\n\\nRufe das Tool output_posts mit genau 10 Posts im posts-Array auf.\",\n  tools: [\n    {\n      name: \"output_posts\",\n      description: \"Gibt die generierten Social-Media-Posts strukturiert zurück\",\n      strict: true,\n      input_schema: {\n        type: \"object\",\n        properties: {\n          posts: {\n            type: \"array\",\n            items: {\n              type: \"object\",\n              properties: {\n                platform: { type: \"string\", enum: [\"linkedin\", \"instagram\", \"x\", \"facebook\"] },\n                text: { type: \"string\" },\n                hashtags: { type: \"array\", items: { type: \"string\" } },\n                suggested_image: { type: \"string\" },\n                best_time: { type: \"string\" }\n              },\n              required: [\"platform\", \"text\", \"hashtags\", \"suggested_image\", \"best_time\"],\n              additionalProperties: false\n            }\n          }\n        },\n        required: [\"posts\"],\n        additionalProperties: false\n      }\n    }\n  ],\n  tool_choice: { type: \"tool\", name: \"output_posts\" },\n  messages: [\n    {\n      role: \"user\",\n      content: \"Thema: \" + $json.body.thema + \"\\nKontext: \" + ($json.body.kontext || \"-\") + \"\\nMarkenstimme: \" + ($json.body.markenstimme || \"-\") + \"\\nZielgruppe: \" + ($json.body.zielgruppe || \"-\")\n    }\n  ]\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  model: \"claude-sonnet-4-5\",\n  max_tokens: 8192,\n  system: $json.systemPrompt,\n  tools: [\n    {\n      name: \"output_posts\",\n      description: \"Gibt die generierten Social-Media-Posts strukturiert zurück\",\n      strict: true,\n      input_schema: {\n        type: \"object\",\n        properties: {\n          posts: {\n            type: \"array\",\n            items: {\n              type: \"object\",\n              properties: {\n                platform: { type: \"string\", enum: [\"linkedin\", \"instagram\", \"x\", \"facebook\"] },\n                text: { type: \"string\" },\n                hashtags: { type: \"array\", items: { type: \"string\" } },\n                suggested_image: { type: \"string\" },\n                best_time: { type: \"string\" }\n              },\n              required: [\"platform\", \"text\", \"hashtags\", \"suggested_image\", \"best_time\"],\n              additionalProperties: false\n            }\n          }\n        },\n        required: [\"posts\"],\n        additionalProperties: false\n      }\n    }\n  ],\n  tool_choice: { type: \"tool\", name: \"output_posts\" },\n  messages: [\n    {\n      role: \"user\",\n      content: \"Thema: \" + $json.body.thema + \"\\nKontext: \" + ($json.body.kontext || \"-\") + \"\\nMarkenstimme: \" + ($json.body.markenstimme || \"-\") + \"\\nZielgruppe: \" + ($json.body.zielgruppe || \"-\")\n    }\n  ]\n}) }}",
         "options": {}
       },
       "id": "a1b2c3d4-0002-4000-8000-000000000002",
@@ -104,7 +117,8 @@
             "text": "={{ $json.text }}",
             "hashtags": "={{ $json.hashtags }}",
             "status": "Entwurf",
-            "kunde": "={{ $('Webhook').item.json.body.kunde || null }}"
+            "kunde": "={{ $('Webhook').item.json.body.kunde || null }}",
+            "user_id": "={{ $('Webhook').item.json.body.user_id }}"
           },
           "matchingColumns": [],
           "schema": []
@@ -147,7 +161,7 @@
       "main": [
         [
           {
-            "node": "Claude - Generate Posts",
+            "node": "Build System Prompt",
             "type": "main",
             "index": 0
           }
@@ -199,6 +213,17 @@
         [
           {
             "node": "Loop Over Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build System Prompt": {
+      "main": [
+        [
+          {
+            "node": "Claude - Generate Posts",
             "type": "main",
             "index": 0
           }

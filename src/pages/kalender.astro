@@ -1,13 +1,21 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { getCurrentUser } from '../lib/auth';
 import { supabase, type Post, type Status } from '../lib/supabase';
 
 export const prerender = false;
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
+const user = await getCurrentUser(Astro.cookies);
+if (!user) return Astro.redirect(`${base}login`);
+
 const activeStatus = (Astro.url.searchParams.get('status') as Status | null) ?? null;
 
-let query = supabase.from('content_kalender').select('*').order('created_at', { ascending: true });
+let query = supabase
+  .from('content_kalender')
+  .select('*')
+  .eq('user_id', user.id)
+  .order('created_at', { ascending: true });
 if (activeStatus) query = query.eq('status', activeStatus);
 
 const { data, error } = await query;

@@ -1,0 +1,95 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getCurrentUser } from '../lib/auth';
+
+export const prerender = false;
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
+const user = await getCurrentUser(Astro.cookies);
+if (user) return Astro.redirect(base);
+---
+
+<Layout title="Registrieren">
+  <div class="mx-auto max-w-sm">
+    <h1 class="text-2xl font-semibold tracking-tight">Konto erstellen</h1>
+
+    <form id="register-form" class="mt-8 space-y-4">
+      <div>
+        <label for="name" class="block text-sm font-medium text-slate-700">Name</label>
+        <input
+          id="name"
+          name="name"
+          type="text"
+          class="mt-1.5 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+        />
+      </div>
+      <div>
+        <label for="email" class="block text-sm font-medium text-slate-700">E-Mail</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          required
+          class="mt-1.5 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+        />
+      </div>
+      <div>
+        <label for="password" class="block text-sm font-medium text-slate-700">Passwort</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          required
+          minlength="6"
+          class="mt-1.5 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+        />
+      </div>
+      <button
+        type="submit"
+        class="w-full rounded-md bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+      >
+        Registrieren
+      </button>
+    </form>
+
+    <p class="mt-4 text-sm text-slate-500">
+      Schon ein Konto? <a href={`${base}login`} class="font-medium text-slate-900 underline">Jetzt anmelden</a>
+    </p>
+
+    <div id="status" class="mt-4 hidden rounded-md border p-3 text-sm"></div>
+  </div>
+</Layout>
+
+<script>
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
+  const form = document.getElementById('register-form') as HTMLFormElement;
+  const statusEl = document.getElementById('status') as HTMLDivElement;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(form);
+    const payload = Object.fromEntries(formData.entries());
+
+    const res = await fetch(`${base}api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      if (data.needsConfirmation) {
+        statusEl.className = 'mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800';
+        statusEl.classList.remove('hidden');
+        statusEl.textContent = 'Fast fertig! Bitte bestätige deine E-Mail-Adresse über den Link, den wir dir geschickt haben.';
+        form.reset();
+      } else {
+        window.location.href = base;
+      }
+    } else {
+      statusEl.className = 'mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800';
+      statusEl.classList.remove('hidden');
+      statusEl.textContent = data.error || 'Registrierung fehlgeschlagen.';
+    }
+  });
+</script>

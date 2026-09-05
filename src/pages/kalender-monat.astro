@@ -1,10 +1,13 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { getCurrentUser } from '../lib/auth';
 import { supabase, type Post } from '../lib/supabase';
 
 export const prerender = false;
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
+const user = await getCurrentUser(Astro.cookies);
+if (!user) return Astro.redirect(`${base}login`);
 
 const today = new Date();
 const year = parseInt(Astro.url.searchParams.get('jahr') ?? '') || today.getFullYear();
@@ -19,6 +22,7 @@ const nextMonthDate = new Date(Date.UTC(year, month + 1, 1));
 const { data, error } = await supabase
   .from('content_kalender')
   .select('*')
+  .eq('user_id', user.id)
   .eq('status', 'Freigegeben')
   .not('geplant_fuer', 'is', null)
   .gte('geplant_fuer', monthStart.toISOString().slice(0, 10))

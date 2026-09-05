@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import Footer from '../components/Footer.astro';
+import { getCurrentUser } from '../lib/auth';
 
 interface Props {
   title: string;
@@ -12,6 +13,16 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const homePath = base.replace(/\/$/, '') || '/';
 const kalenderHref = `${base}kalender`;
 const monatHref = `${base}kalender-monat`;
+const profilHref = `${base}profil`;
+const einstellungenHref = `${base}einstellungen`;
+const loginHref = `${base}login`;
+const registrierenHref = `${base}registrieren`;
+
+const user = await getCurrentUser(Astro.cookies);
+
+function isActive(href: string) {
+  return path === href.replace(/\/$/, '') ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100';
+}
 ---
 
 <!doctype html>
@@ -45,31 +56,45 @@ const monatHref = `${base}kalender-monat`;
           </svg>
         </div>
 
-        <nav class="flex gap-1 text-sm">
-          <a
-            href={base}
-            class={`rounded-md px-3 py-1.5 transition-colors ${
-              path === homePath ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
+        <nav class="flex flex-wrap items-center gap-1 text-sm">
+          <a href={base} class={`rounded-md px-3 py-1.5 transition-colors ${isActive(homePath)}`}>
             Neuer Beitrag
           </a>
-          <a
-            href={kalenderHref}
-            class={`rounded-md px-3 py-1.5 transition-colors ${
-              path === kalenderHref.replace(/\/$/, '') ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Content-Kalender
-          </a>
-          <a
-            href={monatHref}
-            class={`rounded-md px-3 py-1.5 transition-colors ${
-              path === monatHref.replace(/\/$/, '') ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Monatskalender
-          </a>
+          {user && (
+            <>
+              <a href={kalenderHref} class={`rounded-md px-3 py-1.5 transition-colors ${isActive(kalenderHref)}`}>
+                Content-Kalender
+              </a>
+              <a href={monatHref} class={`rounded-md px-3 py-1.5 transition-colors ${isActive(monatHref)}`}>
+                Monatskalender
+              </a>
+              <a href={einstellungenHref} class={`rounded-md px-3 py-1.5 transition-colors ${isActive(einstellungenHref)}`}>
+                Einstellungen
+              </a>
+              <a href={profilHref} class={`rounded-md px-3 py-1.5 transition-colors ${isActive(profilHref)}`}>
+                Profil
+              </a>
+              <button
+                id="logout-btn"
+                class="rounded-md px-3 py-1.5 text-slate-600 transition-colors hover:bg-slate-100"
+              >
+                Abmelden
+              </button>
+            </>
+          )}
+          {!user && (
+            <>
+              <a href={loginHref} class={`rounded-md px-3 py-1.5 transition-colors ${isActive(loginHref)}`}>
+                Anmelden
+              </a>
+              <a
+                href={registrierenHref}
+                class="rounded-md bg-slate-900 px-3 py-1.5 font-medium text-white transition-colors hover:bg-slate-700"
+              >
+                Registrieren
+              </a>
+            </>
+          )}
         </nav>
       </div>
     </header>
@@ -79,3 +104,11 @@ const monatHref = `${base}kalender-monat`;
     <Footer />
   </body>
 </html>
+
+<script>
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await fetch(`${base}api/auth/logout`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    window.location.href = `${base}login`;
+  });
+</script>

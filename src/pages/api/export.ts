@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { getCurrentUser } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 
 export const prerender = false;
@@ -9,10 +10,19 @@ function csvEscape(value: string | null): string {
   return `"${escaped}"`;
 }
 
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, cookies }) => {
+  const user = await getCurrentUser(cookies);
+  if (!user) {
+    return new Response('Nicht angemeldet.', { status: 401 });
+  }
+
   const status = url.searchParams.get('status');
 
-  let query = supabase.from('content_kalender').select('*').order('created_at', { ascending: true });
+  let query = supabase
+    .from('content_kalender')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: true });
   if (status) query = query.eq('status', status);
 
   const { data, error } = await query;

@@ -11,7 +11,15 @@ Service oder für die eigene Nutzung.
 - Supabase/Postgres (Content-Kalender, Tabelle `content_kalender`)
 - Optional: Buffer/Publer API (Auto-Posting)
 
-## Datenbank-Schema (Supabase: `content_kalender`)
+## Auth & Multi-User
+- Supabase Auth (E-Mail/Passwort), Session via httpOnly-Cookies (`sb-access-token`/`sb-refresh-token`, siehe `src/lib/auth.ts`)
+- Jeder Post gehört einem `user_id` (content_kalender.user_id) — Kalender, Export, Freigeben/Löschen sind pro User isoliert
+- Nicht angemeldete Besucher sehen auf der Startseite einen Infotext statt des Formulars: Parametrisierung (Anzahl/Textlänge pro Plattform) und automatisiertes Posting sind bezahlten Plänen vorbehalten
+- Free/Paid-Gate ist aktuell ein manuelles Feld `profiles.plan` (`free`/`paid`) — Stripe-Anbindung folgt später, Code ist aber schon darauf vorbereitet
+
+## Datenbank-Schema (Supabase)
+
+### `content_kalender`
 - id: bigint, Primary Key (auto)
 - plattform: enum (LinkedIn, Instagram, X, Facebook)
 - text: text
@@ -19,17 +27,31 @@ Service oder für die eigene Nutzung.
 - status: enum (Entwurf, Freigegeben, Veröffentlicht), Default: Entwurf
 - geplant_fuer: date
 - kunde: text (für Agentur-Service-Nutzung)
+- user_id: uuid → auth.users
 - created_at: timestamptz (auto)
 
+### `profiles` (1:1 zu auth.users)
+- id: uuid, Primary Key → auth.users
+- name, email, phone: text
+- avatar_url: text (Supabase Storage Bucket `avatars`, Pfad `{user_id}/avatar.*`)
+- plan: text ('free' | 'paid'), Default 'free'
+- created_at: timestamptz (auto)
+
+### `platform_settings`
+- id: bigint, Primary Key (auto)
+- user_id: uuid → auth.users
+- platform: enum (LinkedIn, Instagram, X, Facebook)
+- post_count, min_length, max_length: int
+- unique (user_id, platform)
+- Nur für `plan = 'paid'` editierbar (siehe `src/pages/api/settings.ts`); Defaults für free/unset User in `src/lib/supabase.ts` (`DEFAULT_PLATFORM_SETTINGS`)
+
 ## Plattform-Anforderungen
-- LinkedIn: Professionell, Storytelling, 1.000–1.500 Zeichen,
-  3–5 Hashtags, Hook im ersten Satz
-- Instagram: Kurz, emotional, Call-to-Action, 10–15 Hashtags,
-  Emoji-freundlich, Absätze mit Leerzeilen
-- X (Twitter): Knapp, Hook in den ersten Worten, max 280 Zeichen,
-  2–3 Hashtags, kontroverse Meinungen funktionieren
-- Facebook: Mittelllang, Fragen stellen, Community-orientiert,
-  persönlicher Ton
+Ton/Stil pro Plattform ist fix im n8n-Workflow hinterlegt (Code-Node "Build System Prompt"),
+Anzahl Posts und Zeichenlänge kommen dynamisch aus `platform_settings` (bzw. den Defaults):
+- LinkedIn: Professionell, Storytelling, Hook im ersten Satz, 3–5 Hashtags
+- Instagram: Kurz, emotional, Call-to-Action, 10–15 Hashtags, Emoji-freundlich, Absätze mit Leerzeilen
+- X (Twitter): Knapp, Hook in den ersten Worten, 2–3 Hashtags, kontroverse Meinungen funktionieren
+- Facebook: Mittellang, Fragen stellen, Community-orientiert, persönlicher Ton
 
 ## Output-Format (JSON pro Post)
 {
@@ -42,10 +64,15 @@ Service oder für die eigene Nutzung.
 }
 
 ## Dashboard-Features
-- Eingabeformular: Thema, Kontext, Markenstimme, Zielgruppe
-- Content-Kalender: Wochenansicht mit allen geplanten Posts
+- Login/Registrierung (`/login`, `/registrieren`)
+- Eingabeformular: Thema, Kontext, Markenstimme, Zielgruppe (nur angemeldet)
+- Profil (`/profil`): Bild-Upload, Name, Telefonnummer (E-Mail read-only)
+- Einstellungen (`/einstellungen`): Anzahl Posts + Min/Max-Zeichenlänge pro Plattform (nur `plan = 'paid'`)
+- Content-Kalender: Wochenansicht mit allen geplanten Posts (nur eigene)
+- Monatskalender (`/kalender-monat`): Kalenderraster für freigegebene, datierte Posts
 - Status-Filter: Entwurf, Freigegeben, Veröffentlicht
-- "Freigeben"-Button pro Post (ändert Status)
+- "Freigeben"-Button pro Post inkl. Datumsauswahl (setzt `geplant_fuer`)
+- Löschen (einzeln oder alle Entwürfe/Freigaben); veröffentlichte Posts sind geschützt
 - Export als CSV möglich
 
 ## Design (Dashboard)

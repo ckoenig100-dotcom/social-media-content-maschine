@@ -17,4 +17,33 @@ export interface Post {
   geplant_fuer: string | null;
   kunde: string | null;
   created_at: string;
+  user_id: string | null;
 }
+
+export interface Profile {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  plan: 'free' | 'paid';
+  created_at: string;
+}
+
+export interface PlatformSetting {
+  id: number;
+  user_id: string;
+  platform: Plattform;
+  post_count: number;
+  min_length: number;
+  max_length: number;
+}
+
+export const PLATFORMS: Plattform[] = ['LinkedIn', 'Instagram', 'X', 'Facebook'];
+
+export const DEFAULT_PLATFORM_SETTINGS: Record<Plattform, { post_count: number; min_length: number; max_length: number }> = {
+  LinkedIn: { post_count: 3, min_length: 1000, max_length: 1500 },
+  Instagram: { post_count: 3, min_length: 150, max_length: 400 },
+  X: { post_count: 2, min_length: 100, max_length: 280 },
+  Facebook: { post_count: 2, min_length: 300, max_length: 800 }
+};
