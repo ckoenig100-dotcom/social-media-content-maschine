@@ -1,0 +1,138 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { supabase, type Post } from '../lib/supabase';
+
+export const prerender = false;
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
+
+const today = new Date();
+const year = parseInt(Astro.url.searchParams.get('jahr') ?? '') || today.getFullYear();
+const month = (parseInt(Astro.url.searchParams.get('monat') ?? '') || today.getMonth() + 1) - 1; // 0-indexed
+
+const monthStart = new Date(Date.UTC(year, month, 1));
+const monthEnd = new Date(Date.UTC(year, month + 1, 0));
+
+const prevMonthDate = new Date(Date.UTC(year, month - 1, 1));
+const nextMonthDate = new Date(Date.UTC(year, month + 1, 1));
+
+const { data, error } = await supabase
+  .from('content_kalender')
+  .select('*')
+  .eq('status', 'Freigegeben')
+  .not('geplant_fuer', 'is', null)
+  .gte('geplant_fuer', monthStart.toISOString().slice(0, 10))
+  .lte('geplant_fuer', monthEnd.toISOString().slice(0, 10))
+  .order('geplant_fuer', { ascending: true });
+
+const posts = (data ?? []) as Post[];
+
+const postsByDay = new Map<string, Post[]>();
+for (const post of posts) {
+  const key = post.geplant_fuer!;
+  if (!postsByDay.has(key)) postsByDay.set(key, []);
+  postsByDay.get(key)!.push(post);
+}
+
+// Montag = 0 ... Sonntag = 6
+const startWeekday = (monthStart.getUTCDay() + 6) % 7;
+const daysInMonth = monthEnd.getUTCDate();
+
+const cells: (number | null)[] = [
+  ...Array(startWeekday).fill(null),
+  ...Array.from({ length: daysInMonth }, (_, i) => i + 1)
+];
+while (cells.length % 7 !== 0) cells.push(null);
+
+const weeks: (number | null)[][] = [];
+for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+function dayKey(day: number): string {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+const monthLabel = monthStart.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+const weekdayLabels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+const platformColors: Record<string, string> = {
+  LinkedIn: 'bg-sky-100 text-sky-700',
+  Instagram: 'bg-pink-100 text-pink-700',
+  X: 'bg-slate-200 text-slate-700',
+  Facebook: 'bg-indigo-100 text-indigo-700'
+};
+
+const todayKey = today.toISOString().slice(0, 10);
+---
+
+<Layout title="Monatskalender">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-2xl font-semibold tracking-tight capitalize">{monthLabel}</h1>
+    <div class="flex gap-2">
+      <a
+        href={`${base}kalender-monat?jahr=${prevMonthDate.getUTCFullYear()}&monat=${prevMonthDate.getUTCMonth() + 1}`}
+        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+      >
+        ← Vorheriger Monat
+      </a>
+      <a
+        href={`${base}kalender-monat?jahr=${nextMonthDate.getUTCFullYear()}&monat=${nextMonthDate.getUTCMonth() + 1}`}
+        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+      >
+        Nächster Monat →
+      </a>
+    </div>
+  </div>
+
+  <p class="mt-1 text-sm text-slate-500">Freigegebene Posts mit geplantem Datum.</p>
+
+  {error && <p class="mt-6 text-sm text-red-600">Fehler beim Laden: {error.message}</p>}
+
+  <div class="mt-6 overflow-x-auto">
+    <div class="min-w-[700px]">
+      <div class="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200">
+        {
+          weekdayLabels.map((label) => (
+            <div class="bg-slate-50 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+              {label}
+            </div>
+          ))
+        }
+
+        {
+          weeks.flat().map((day) => {
+            const key = day ? dayKey(day) : null;
+            const dayPosts = key ? (postsByDay.get(key) ?? []) : [];
+            const isToday = key === todayKey;
+
+            return (
+              <div class={`min-h-[110px] bg-white p-1.5 ${day ? '' : 'bg-slate-50'}`}>
+                {day && (
+                  <>
+                    <div
+                      class={`mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium ${
+                        isToday ? 'bg-slate-900 text-white' : 'text-slate-500'
+                      }`}
+                    >
+                      {day}
+                    </div>
+                    <div class="space-y-1">
+                      {dayPosts.map((post) => (
+                        <div
+                          class={`truncate rounded px-1.5 py-0.5 text-[11px] font-medium ${platformColors[post.plattform] ?? 'bg-slate-100 text-slate-700'}`}
+                          title={post.text}
+                        >
+                          {post.plattform}: {post.text.slice(0, 24)}
+                          {post.text.length > 24 ? '…' : ''}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })
+        }
+      </div>
+    </div>
+  </div>
+</Layout>
