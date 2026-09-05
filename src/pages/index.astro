@@ -6,16 +6,18 @@ import { supabase, PLATFORMS, DEFAULT_PLATFORM_SETTINGS, type PlatformSetting } 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
 const user = await getCurrentUser(Astro.cookies);
 
-let totalPosts = PLATFORMS.reduce((sum, p) => sum + DEFAULT_PLATFORM_SETTINGS[p].post_count, 0);
+function effectivePostCount(p: (typeof PLATFORMS)[number], byPlatform: Record<string, PlatformSetting>) {
+  const s = byPlatform[p] ?? DEFAULT_PLATFORM_SETTINGS[p];
+  return s.active ? s.post_count : 0;
+}
+
+let totalPosts = PLATFORMS.reduce((sum, p) => sum + effectivePostCount(p, {}), 0);
 
 if (user) {
   const { data } = await supabase.from('platform_settings').select('*').eq('user_id', user.id);
   const settings = (data ?? []) as PlatformSetting[];
   const byPlatform = Object.fromEntries(settings.map((s) => [s.platform, s]));
-  totalPosts = PLATFORMS.reduce(
-    (sum, p) => sum + (byPlatform[p]?.post_count ?? DEFAULT_PLATFORM_SETTINGS[p].post_count),
-    0
-  );
+  totalPosts = PLATFORMS.reduce((sum, p) => sum + effectivePostCount(p, byPlatform), 0);
 }
 ---
 

@@ -26,7 +26,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const rows = PLATFORMS.filter((p) => settings[p]).map((platform) => ({
     user_id: user.id,
     platform,
-    post_count: Math.max(1, Math.min(10, parseInt(settings[platform].post_count) || 1)),
+    active: Boolean(settings[platform].active),
+    post_count: Math.max(0, Math.min(10, parseInt(settings[platform].post_count) || 0)),
     min_length: Math.max(1, parseInt(settings[platform].min_length) || 1),
     max_length: Math.max(1, parseInt(settings[platform].max_length) || 1)
   }));

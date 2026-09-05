@@ -8,7 +8,11 @@ const platformKeyMap: Record<string, string> = {
   LinkedIn: 'linkedin',
   Instagram: 'instagram',
   X: 'x',
-  Facebook: 'facebook'
+  Facebook: 'facebook',
+  TikTok: 'tiktok',
+  Pinterest: 'pinterest',
+  Threads: 'threads',
+  YouTube: 'youtube'
 };
 
 export const POST: APIRoute = async ({ request, cookies }) => {
@@ -31,11 +35,18 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const s = byPlatform[platform] ?? DEFAULT_PLATFORM_SETTINGS[platform];
     return {
       platform: platformKeyMap[platform],
-      count: s.post_count,
+      count: s.active ? s.post_count : 0,
       minLength: s.min_length,
       maxLength: s.max_length
     };
-  });
+  }).filter((p) => p.count > 0);
+
+  if (platforms.length === 0) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Bitte aktiviere mindestens eine Plattform in den Einstellungen.' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
 
   const payload = { ...body, platforms, user_id: user.id };
 

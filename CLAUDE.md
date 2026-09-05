@@ -42,10 +42,13 @@ Service oder für die eigene Nutzung.
 ### `platform_settings`
 - id: bigint, Primary Key (auto)
 - user_id: uuid → auth.users
-- platform: enum (LinkedIn, Instagram, X, Facebook)
-- post_count, min_length, max_length: int
+- platform: enum (LinkedIn, Instagram, X, Facebook, TikTok, Pinterest, Threads, YouTube)
+- active: boolean, Default true
+- post_count, min_length, max_length: int (post_count darf 0 sein)
 - unique (user_id, platform)
-- Nur für `plan = 'paid'` editierbar (siehe `src/pages/api/settings.ts`); Defaults für free/unset User in `src/lib/supabase.ts` (`DEFAULT_PLATFORM_SETTINGS`)
+- Nur für `plan = 'paid'` editierbar (siehe `src/pages/api/settings.ts`); Defaults für free/unset User in `src/lib/supabase.ts` (`DEFAULT_PLATFORM_SETTINGS`) — TikTok/Pinterest/Threads/YouTube sind dort standardmäßig `active: false`
+- Bei der Generierung (`/api/generate.ts`) werden nur Plattformen mit `active = true` UND `post_count > 0` an n8n geschickt; sind alle deaktiviert, wird ohne n8n-Aufruf ein 400-Fehler zurückgegeben
+- `content_kalender.user_id` und `platform_settings.user_id`/`profiles.id` haben `ON DELETE CASCADE` — löscht man einen `auth.users`-Eintrag, verschwinden Profil, Einstellungen und alle Posts automatisch mit
 
 ## Plattform-Anforderungen
 Ton/Stil pro Plattform ist fix im n8n-Workflow hinterlegt (Code-Node "Build System Prompt"),

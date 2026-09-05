@@ -23,7 +23,8 @@ const settingsByPlatform = Object.fromEntries(settings.map((s) => [s.platform, s
   <div class="mx-auto max-w-2xl">
     <h1 class="text-2xl font-semibold tracking-tight">Plattform-Einstellungen</h1>
     <p class="mt-1 text-sm text-slate-500">
-      Lege fest, wie viele Posts und welche Textlänge pro Plattform generiert werden.
+      Aktiviere die Plattformen, für die Content generiert werden soll, und lege Anzahl sowie Textlänge fest.
+      Deaktivierte Plattformen (oder Anzahl 0) werden bei der Generierung übersprungen.
     </p>
 
     {!isPaid && (
@@ -32,19 +33,28 @@ const settingsByPlatform = Object.fromEntries(settings.map((s) => [s.platform, s
       </div>
     )}
 
-    <form id="settings-form" class="mt-6 space-y-6">
+    <form id="settings-form" class="mt-6 space-y-4">
       {
         PLATFORMS.map((platform) => {
           const current = settingsByPlatform[platform] ?? DEFAULT_PLATFORM_SETTINGS[platform];
           return (
             <fieldset class="rounded-lg border border-slate-200 p-4" disabled={!isPaid}>
-              <legend class="px-1 text-sm font-semibold text-slate-900">{platform}</legend>
-              <div class="mt-2 grid grid-cols-3 gap-3">
+              <legend class="flex items-center gap-2 px-1 text-sm font-semibold text-slate-900">
+                <input
+                  type="checkbox"
+                  class="platform-active-toggle h-4 w-4 rounded border-slate-300"
+                  data-platform={platform}
+                  name={`${platform}_active`}
+                  checked={current.active}
+                />
+                {platform}
+              </legend>
+              <div class="platform-fields mt-2 grid grid-cols-3 gap-3">
                 <div>
                   <label class="block text-xs font-medium text-slate-600">Anzahl Posts</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     max="10"
                     name={`${platform}_post_count`}
                     value={current.post_count}
@@ -98,6 +108,19 @@ const settingsByPlatform = Object.fromEntries(settings.map((s) => [s.platform, s
   const saveBtn = document.getElementById('save-btn');
   const statusEl = document.getElementById('status');
 
+  function updateFieldsetState(checkbox) {
+    // Nur visuell abblenden statt "disabled" zu setzen, sonst fehlen die Felder in FormData beim Absenden.
+    const fieldset = checkbox.closest('fieldset');
+    const wrapper = fieldset?.querySelector('.platform-fields');
+    wrapper?.classList.toggle('opacity-40', !checkbox.checked);
+    wrapper?.classList.toggle('pointer-events-none', !checkbox.checked);
+  }
+
+  document.querySelectorAll('.platform-active-toggle').forEach((checkbox) => {
+    updateFieldsetState(checkbox);
+    checkbox.addEventListener('change', () => updateFieldsetState(checkbox));
+  });
+
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (saveBtn) {
@@ -109,6 +132,7 @@ const settingsByPlatform = Object.fromEntries(settings.map((s) => [s.platform, s
     const settings = {};
     for (const platform of platforms) {
       settings[platform] = {
+        active: formData.get(`${platform}_active`) === 'on',
         post_count: formData.get(`${platform}_post_count`),
         min_length: formData.get(`${platform}_min_length`),
         max_length: formData.get(`${platform}_max_length`)
