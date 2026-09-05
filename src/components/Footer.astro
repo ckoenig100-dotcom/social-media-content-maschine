@@ -1,5 +1,17 @@
 ---
+import { getCurrentUser } from '../lib/auth';
+import { supabase, type Profile } from '../lib/supabase';
+
 const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
+const user = await getCurrentUser(Astro.cookies);
+
+let userInfoText: string | null = null;
+if (user) {
+  const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+  const profile = data as Profile | null;
+  const planLabel = profile?.plan === 'paid' ? 'Bezahlt' : 'Kostenlos';
+  userInfoText = `Angemeldet als: ${profile?.name || user.email} (${user.email}) (${planLabel})`;
+}
 ---
 
 <footer class="border-t border-slate-200 bg-slate-50">
@@ -42,6 +54,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
 
 		<div class="flex flex-col items-center gap-3 sm:flex-row sm:justify-between sm:w-full">
 			<p>&copy; 2026 Christian König</p>
+			{userInfoText && <p class="text-slate-500">{userInfoText}</p>}
 			<nav aria-label="Rechtliches">
 				<ul class="flex items-center gap-4">
 					<li><a href="mailto:chris@live.at" class="inline-flex min-h-11 items-center hover:text-slate-900 hover:underline">Kontakt</a></li>
