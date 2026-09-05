@@ -107,8 +107,7 @@ const settingsByPlatform = Object.fromEntries(settings.map((s) => [s.platform, s
   </div>
 </Layout>
 
-<script define:vars={{ platforms: PLATFORMS }}>
-  const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
+<script define:vars={{ platforms: PLATFORMS, base }}>
   const form = document.getElementById('settings-form');
   const saveBtn = document.getElementById('save-btn');
   const statusEl = document.getElementById('status');
