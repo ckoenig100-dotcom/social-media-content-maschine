@@ -75,7 +75,15 @@ import Layout from '../layouts/Layout.astro';
       </button>
     </form>
 
-    <div id="status" class="mt-6 hidden rounded-md border p-4 text-sm"></div>
+    <div id="status" class="mt-6 hidden rounded-md border p-4 text-sm">
+      <p id="status-text"></p>
+      <div id="progress-wrap" class="mt-3 hidden">
+        <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+          <div id="progress-bar" class="h-full w-0 rounded-full bg-slate-900 transition-[width] duration-500 ease-out"></div>
+        </div>
+        <p id="progress-percent" class="mt-1 text-right text-xs text-slate-400">0%</p>
+      </div>
+    </div>
   </div>
 </Layout>
 
@@ -84,6 +92,32 @@ import Layout from '../layouts/Layout.astro';
   const form = document.getElementById('generate-form') as HTMLFormElement;
   const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
   const statusEl = document.getElementById('status') as HTMLDivElement;
+  const statusText = document.getElementById('status-text') as HTMLParagraphElement;
+  const progressWrap = document.getElementById('progress-wrap') as HTMLDivElement;
+  const progressBar = document.getElementById('progress-bar') as HTMLDivElement;
+  const progressPercent = document.getElementById('progress-percent') as HTMLParagraphElement;
+
+  let progressTimer: ReturnType<typeof setInterval> | undefined;
+
+  function setProgress(percent: number) {
+    progressBar.style.width = `${percent}%`;
+    progressPercent.textContent = `${Math.round(percent)}%`;
+  }
+
+  function startFakeProgress() {
+    const startTime = Date.now();
+    setProgress(0);
+    progressTimer = setInterval(() => {
+      const elapsedSeconds = (Date.now() - startTime) / 1000;
+      // Nähert sich asymptotisch 92% an, damit die Anzeige nie "fertig" suggeriert, bevor die Antwort da ist.
+      const percent = 92 * (1 - Math.exp(-elapsedSeconds / 40));
+      setProgress(percent);
+    }, 300);
+  }
+
+  function stopFakeProgress() {
+    if (progressTimer) clearInterval(progressTimer);
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -94,7 +128,9 @@ import Layout from '../layouts/Layout.astro';
     submitBtn.disabled = true;
     submitBtn.textContent = 'Generiere Posts... (kann bis zu 2 Minuten dauern)';
     statusEl.className = 'mt-6 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600';
-    statusEl.textContent = 'Claude erstellt gerade 10 Posts und speichert sie in deinem Content-Kalender. Bitte warten...';
+    statusText.textContent = 'Claude erstellt gerade 10 Posts und speichert sie in deinem Content-Kalender. Bitte warten...';
+    progressWrap.classList.remove('hidden');
+    startFakeProgress();
 
     try {
       const res = await fetch(`${base}api/generate`, {
@@ -105,15 +141,19 @@ import Layout from '../layouts/Layout.astro';
       const data = await res.json();
 
       if (res.ok && data.success) {
+        stopFakeProgress();
+        setProgress(100);
         statusEl.className = 'mt-6 rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-800';
-        statusEl.innerHTML = `${data.count} Posts wurden erstellt. <a href="${base}kalender" class="font-medium underline">Zum Content-Kalender →</a>`;
+        statusText.innerHTML = `${data.count} Posts wurden erstellt. <a href="${base}kalender" class="font-medium underline">Zum Content-Kalender →</a>`;
         form.reset();
       } else {
         throw new Error(data.error || 'Unbekannter Fehler');
       }
     } catch (err) {
+      stopFakeProgress();
+      progressWrap.classList.add('hidden');
       statusEl.className = 'mt-6 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800';
-      statusEl.textContent = `Fehler beim Generieren: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`;
+      statusText.textContent = `Fehler beim Generieren: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`;
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = '10 Posts generieren';
