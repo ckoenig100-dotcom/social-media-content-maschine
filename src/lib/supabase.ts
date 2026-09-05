@@ -72,3 +72,33 @@ export const DEFAULT_PLATFORM_SETTINGS: Record<
   Threads: { post_count: 2, min_length: 100, max_length: 300, active: false },
   YouTube: { post_count: 1, min_length: 300, max_length: 1000, active: false }
 };
+
+/** Free-Plan-Nutzer dürfen ausschließlich diese Plattformen nutzen — fix, nicht konfigurierbar. */
+export const FREE_PLAN_PLATFORMS: Plattform[] = ['LinkedIn', 'Facebook'];
+
+/**
+ * Ermittelt die tatsächlich wirksamen Plattform-Einstellungen eines Users.
+ * Free-Plan ignoriert jede gespeicherte platform_settings-Zeile und bekommt
+ * immer genau FREE_PLAN_PLATFORMS mit den Standardwerten, alles andere inaktiv.
+ * Paid-Plan nutzt gespeicherte Werte, fällt sonst auf DEFAULT_PLATFORM_SETTINGS zurück.
+ */
+export function getEffectiveSettings(
+  plan: 'free' | 'paid',
+  byPlatform: Partial<Record<Plattform, PlatformSetting>>
+): Record<Plattform, { post_count: number; min_length: number; max_length: number; active: boolean }> {
+  const result = {} as Record<Plattform, { post_count: number; min_length: number; max_length: number; active: boolean }>;
+
+  for (const platform of PLATFORMS) {
+    if (plan === 'paid') {
+      const s = byPlatform[platform] ?? DEFAULT_PLATFORM_SETTINGS[platform];
+      result[platform] = { post_count: s.post_count, min_length: s.min_length, max_length: s.max_length, active: s.active };
+    } else if (FREE_PLAN_PLATFORMS.includes(platform)) {
+      const d = DEFAULT_PLATFORM_SETTINGS[platform];
+      result[platform] = { post_count: d.post_count, min_length: d.min_length, max_length: d.max_length, active: true };
+    } else {
+      result[platform] = { post_count: 0, min_length: 1, max_length: 1, active: false };
+    }
+  }
+
+  return result;
+}

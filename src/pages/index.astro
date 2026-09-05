@@ -1,30 +1,33 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { getCurrentUser } from '../lib/auth';
-import { supabase, PLATFORMS, DEFAULT_PLATFORM_SETTINGS, type PlatformSetting, type Profile } from '../lib/supabase';
+import { supabase, PLATFORMS, getEffectiveSettings, type PlatformSetting, type Profile } from '../lib/supabase';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
 const user = await getCurrentUser(Astro.cookies);
 
 let profileName: string | null = null;
+let plan: 'free' | 'paid' = 'free';
+let effective = getEffectiveSettings('free', {});
+
 if (user) {
   const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-  profileName = (profileData as Profile | null)?.name ?? null;
-}
+  const profile = profileData as Profile | null;
+  profileName = profile?.name ?? null;
+  plan = profile?.plan ?? 'free';
 
-function effectivePostCount(p: (typeof PLATFORMS)[number], byPlatform: Record<string, PlatformSetting>) {
-  const s = byPlatform[p] ?? DEFAULT_PLATFORM_SETTINGS[p];
-  return s.active ? s.post_count : 0;
-}
-
-let totalPosts = PLATFORMS.reduce((sum, p) => sum + effectivePostCount(p, {}), 0);
-
-if (user) {
   const { data } = await supabase.from('platform_settings').select('*').eq('user_id', user.id);
   const settings = (data ?? []) as PlatformSetting[];
   const byPlatform = Object.fromEntries(settings.map((s) => [s.platform, s]));
-  totalPosts = PLATFORMS.reduce((sum, p) => sum + effectivePostCount(p, byPlatform), 0);
+  effective = getEffectiveSettings(plan, byPlatform);
 }
+
+const activePlatforms = PLATFORMS.filter((p) => effective[p].active && effective[p].post_count > 0);
+const totalPosts = activePlatforms.reduce((sum, p) => sum + effective[p].post_count, 0);
+const platformNamesText =
+  activePlatforms.length > 0
+    ? activePlatforms.join(', ').replace(/, ([^,]*)$/, ' und $1')
+    : 'keiner Plattform (bitte Einstellungen prüfen)';
 ---
 
 <Layout title="Neuer Beitrag">
@@ -37,14 +40,22 @@ if (user) {
 
     <h1 class="text-2xl font-semibold tracking-tight">Neuen Content generieren</h1>
     <p class="mt-1 text-sm text-slate-500">
-      Aus einem Thema werden automatisch {totalPosts} Posts für LinkedIn, Instagram, X und Facebook erstellt.
+      Aus einem Thema werden automatisch {totalPosts} Posts für {platformNamesText} erstellt.
     </p>
+
+    {user && plan !== 'paid' && (
+      <p class="mt-2 text-xs text-slate-400">
+        Im kostenlosen Plan sind nur LinkedIn und Facebook aktiv. Weitere Plattformen sowie Anzahl und
+        Textlänge lassen sich mit einem bezahlten Plan individuell einstellen.
+      </p>
+    )}
 
     {!user && (
       <div class="mt-8 rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
         <p>Melde dich an, um Content zu generieren.</p>
         <p class="mt-2">
-          Das Anpassen von Textlänge und Post-Anzahl pro Plattform sowie automatisiertes Posting sind
+          Im kostenlosen Plan werden automatisch Posts für LinkedIn und Facebook erstellt. Weitere
+          Plattformen sowie das Anpassen von Anzahl, Textlänge und automatisiertes Posting sind
           kostenpflichtigen Plänen vorbehalten.
         </p>
         <div class="mt-3 flex gap-2">
