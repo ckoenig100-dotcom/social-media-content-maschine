@@ -1,0 +1,219 @@
+{
+  "name": "Social Media Content Maschine - Generate Content",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-content",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        0
+      ],
+      "webhookId": "generate-content"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: \"claude-sonnet-4-5\",\n  max_tokens: 8192,\n  system: \"Du bist ein Social-Media-Experte. Erstelle aus dem folgenden Thema genau 10 Posts: 3 für LinkedIn, 3 für Instagram, 2 für X, 2 für Facebook. Jeder Post ist auf die Plattform optimiert.\\n\\nPlattform-Anforderungen:\\n- LinkedIn: Professionell, Storytelling, 1.000–1.500 Zeichen, 3–5 Hashtags, Hook im ersten Satz\\n- Instagram: Kurz, emotional, Call-to-Action, 10–15 Hashtags, Emoji-freundlich, Absätze mit Leerzeilen\\n- X (Twitter): Knapp, Hook in den ersten Worten, max 280 Zeichen, 2–3 Hashtags, kontroverse Meinungen funktionieren\\n- Facebook: Mittellang, Fragen stellen, Community-orientiert, persönlicher Ton\\n\\nRufe das Tool output_posts mit genau 10 Posts im posts-Array auf.\",\n  tools: [\n    {\n      name: \"output_posts\",\n      description: \"Gibt die generierten Social-Media-Posts strukturiert zurück\",\n      strict: true,\n      input_schema: {\n        type: \"object\",\n        properties: {\n          posts: {\n            type: \"array\",\n            items: {\n              type: \"object\",\n              properties: {\n                platform: { type: \"string\", enum: [\"linkedin\", \"instagram\", \"x\", \"facebook\"] },\n                text: { type: \"string\" },\n                hashtags: { type: \"array\", items: { type: \"string\" } },\n                suggested_image: { type: \"string\" },\n                best_time: { type: \"string\" }\n              },\n              required: [\"platform\", \"text\", \"hashtags\", \"suggested_image\", \"best_time\"],\n              additionalProperties: false\n            }\n          }\n        },\n        required: [\"posts\"],\n        additionalProperties: false\n      }\n    }\n  ],\n  tool_choice: { type: \"tool\", name: \"output_posts\" },\n  messages: [\n    {\n      role: \"user\",\n      content: \"Thema: \" + $json.body.thema + \"\\nKontext: \" + ($json.body.kontext || \"-\") + \"\\nMarkenstimme: \" + ($json.body.markenstimme || \"-\") + \"\\nZielgruppe: \" + ($json.body.zielgruppe || \"-\")\n    }\n  ]\n}) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Claude - Generate Posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -160,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "e4zd4c2smsz2VSRi",
+          "name": "Claude API Key (social-media-content-maschine)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst toolUse = response.content.find((c) => c.type === 'tool_use');\nconst rawPosts = toolUse.input.posts;\nconst posts = typeof rawPosts === 'string' ? JSON.parse(rawPosts) : rawPosts;\n\nconst platformMap = {\n  linkedin: 'LinkedIn',\n  instagram: 'Instagram',\n  x: 'X',\n  facebook: 'Facebook'\n};\n\nreturn posts.map((post) => ({\n  json: {\n    platform: platformMap[post.platform.toLowerCase()] || post.platform,\n    text: post.text,\n    hashtags: Array.isArray(post.hashtags) ? post.hashtags.join(' ') : post.hashtags,\n    suggested_image: post.suggested_image,\n    best_time: post.best_time\n  }\n}));"
+      },
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Parse & Split Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Loop Over Posts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "content_kalender"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "plattform": "={{ $json.platform }}",
+            "text": "={{ $json.text }}",
+            "hashtags": "={{ $json.hashtags }}",
+            "status": "Entwurf",
+            "kunde": "={{ $('Webhook').item.json.body.kunde || null }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0005-4000-8000-000000000005",
+      "name": "Supabase - Insert Post",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        600,
+        100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Qc0wc50QFHoTWl7k",
+          "name": "Supabase Postgres (social-media-content-maschine)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, count: $items(\"Parse & Split Posts\").length } }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0006-4000-8000-000000000006",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        560,
+        -180
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Claude - Generate Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude - Generate Posts": {
+      "main": [
+        [
+          {
+            "node": "Parse & Split Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Split Posts": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Posts": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase - Insert Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Insert Post": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "instanceId": "social-media-content-maschine"
+  },
+  "id": "generate-content-workflow",
+  "tags": []
+}

@@ -1,0 +1,152 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { supabase, type Post, type Status } from '../lib/supabase';
+
+export const prerender = false;
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
+const activeStatus = (Astro.url.searchParams.get('status') as Status | null) ?? null;
+
+let query = supabase.from('content_kalender').select('*').order('created_at', { ascending: true });
+if (activeStatus) query = query.eq('status', activeStatus);
+
+const { data, error } = await query;
+const posts = (data ?? []) as Post[];
+
+function weekLabel(dateStr: string | null): string {
+  if (!dateStr) return 'Nicht geplant';
+  const date = new Date(dateStr);
+  const day = (date.getUTCDay() + 6) % 7; // Montag = 0
+  const monday = new Date(date);
+  monday.setUTCDate(date.getUTCDate() - day);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const fmt = (d: Date) => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+  return `Woche ${fmt(monday)} – ${fmt(sunday)}`;
+}
+
+const groups = new Map<string, Post[]>();
+for (const post of posts) {
+  const label = weekLabel(post.geplant_fuer);
+  if (!groups.has(label)) groups.set(label, []);
+  groups.get(label)!.push(post);
+}
+
+const platformColors: Record<string, string> = {
+  LinkedIn: 'bg-sky-50 text-sky-700 border-sky-200',
+  Instagram: 'bg-pink-50 text-pink-700 border-pink-200',
+  X: 'bg-slate-100 text-slate-700 border-slate-300',
+  Facebook: 'bg-indigo-50 text-indigo-700 border-indigo-200'
+};
+
+const statusColors: Record<string, string> = {
+  Entwurf: 'bg-amber-50 text-amber-700 border-amber-200',
+  Freigegeben: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  Veröffentlicht: 'bg-slate-900 text-white border-slate-900'
+};
+
+const filters: { label: string; value: Status | null }[] = [
+  { label: 'Alle', value: null },
+  { label: 'Entwurf', value: 'Entwurf' },
+  { label: 'Freigegeben', value: 'Freigegeben' },
+  { label: 'Veröffentlicht', value: 'Veröffentlicht' }
+];
+---
+
+<Layout title="Content-Kalender">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-2xl font-semibold tracking-tight">Content-Kalender</h1>
+    <a
+      href={`${base}api/export${activeStatus ? `?status=${activeStatus}` : ''}`}
+      class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+    >
+      Als CSV exportieren
+    </a>
+  </div>
+
+  <div class="mt-4 flex gap-1.5">
+    {
+      filters.map((f) => (
+        <a
+          href={f.value ? `${base}kalender?status=${f.value}` : `${base}kalender`}
+          class={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            activeStatus === f.value
+              ? 'bg-slate-900 text-white'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          {f.label}
+        </a>
+      ))
+    }
+  </div>
+
+  {error && <p class="mt-6 text-sm text-red-600">Fehler beim Laden: {error.message}</p>}
+
+  {posts.length === 0 && !error && (
+    <p class="mt-10 text-sm text-slate-500">Noch keine Posts vorhanden. Erstelle welche über "Neuer Beitrag".</p>
+  )}
+
+  <div class="mt-8 space-y-10">
+    {
+      [...groups.entries()].map(([label, groupPosts]) => (
+        <section>
+          <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</h2>
+          <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {groupPosts.map((post) => (
+              <article class="rounded-lg border border-slate-200 p-4 shadow-sm">
+                <div class="flex items-center justify-between gap-2">
+                  <span
+                    class={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${platformColors[post.plattform] ?? ''}`}
+                  >
+                    {post.plattform}
+                  </span>
+                  <span
+                    class={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusColors[post.status] ?? ''}`}
+                  >
+                    {post.status}
+                  </span>
+                </div>
+                <p class="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-800">{post.text}</p>
+                {post.hashtags && <p class="mt-2 text-xs text-slate-400">{post.hashtags}</p>}
+                {post.kunde && <p class="mt-2 text-xs text-slate-400">Kunde: {post.kunde}</p>}
+                {post.status === 'Entwurf' && (
+                  <button
+                    data-post-id={post.id}
+                    class="freigeben-btn mt-3 w-full rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
+                  >
+                    Freigeben
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+      ))
+    }
+  </div>
+</Layout>
+
+<script>
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
+  document.querySelectorAll<HTMLButtonElement>('.freigeben-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.postId;
+      btn.disabled = true;
+      btn.textContent = 'Wird freigegeben...';
+
+      const res = await fetch(`${base}api/update-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: Number(id), status: 'Freigegeben' })
+      });
+
+      if (res.ok) {
+        location.reload();
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Fehler – erneut versuchen';
+      }
+    });
+  });
+</script>
