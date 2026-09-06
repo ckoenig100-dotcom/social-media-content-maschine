@@ -1,67 +1,98 @@
 ---
 import { getCurrentUser } from '../lib/auth';
-import { supabase, type Profile } from '../lib/supabase';
+import { supabase, isTrialActive, type Profile } from '../lib/supabase';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
 const user = await getCurrentUser(Astro.cookies);
 
 let userInfoText: string | null = null;
+let trialEndsAtIso: string | null = null;
 if (user) {
   const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
   const profile = data as Profile | null;
-  const planLabel = profile?.plan === 'paid' ? 'Bezahlt' : 'Kostenlos';
+  const planLabel = (profile?.plan === 'paid' || isTrialActive(profile)) ? 'Bezahlt' : 'Kostenlos';
   userInfoText = `Angemeldet als: ${profile?.name || user.email} (${user.email}) (${planLabel})`;
+  if (isTrialActive(profile)) trialEndsAtIso = profile!.trial_ends_at;
 }
 ---
 
-<footer class="border-t border-slate-200 bg-slate-50">
-	<div class="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-8 text-sm text-slate-600 sm:px-6">
+<footer id="site-footer" class="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-slate-50">
+	<div class="mx-auto flex max-w-6xl flex-col items-center gap-2 px-4 py-2.5 text-xs text-slate-600 sm:px-6">
 		<div class="flex items-center gap-3 text-slate-400">
 			<span class="sr-only">Unterstützte Plattformen:</span>
-			<svg viewBox="0 0 24 24" class="h-4 w-4 fill-current hover:text-slate-700" aria-label="LinkedIn">
+			<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-current hover:text-slate-700" aria-label="LinkedIn">
 				<title>LinkedIn</title>
 				<path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
 			</svg>
-			<svg viewBox="0 0 24 24" class="h-4 w-4 fill-current hover:text-slate-700" aria-label="Instagram">
+			<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-current hover:text-slate-700" aria-label="Instagram">
 				<title>Instagram</title>
 				<path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
 			</svg>
-			<svg viewBox="0 0 24 24" class="h-4 w-4 fill-current hover:text-slate-700" aria-label="Facebook">
+			<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-current hover:text-slate-700" aria-label="Facebook">
 				<title>Facebook</title>
 				<path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.987C18.343 21.128 22 16.991 22 12z" />
 			</svg>
-			<svg viewBox="0 0 24 24" class="h-4 w-4 fill-current hover:text-slate-700" aria-label="X">
+			<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-current hover:text-slate-700" aria-label="X">
 				<title>X</title>
 				<path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
 			</svg>
-			<svg viewBox="0 0 24 24" class="h-4 w-4 fill-current hover:text-slate-700" aria-label="TikTok">
+			<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-current hover:text-slate-700" aria-label="TikTok">
 				<title>TikTok</title>
 				<path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
 			</svg>
-			<svg viewBox="0 0 24 24" class="h-4 w-4 fill-current hover:text-slate-700" aria-label="Pinterest">
+			<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-current hover:text-slate-700" aria-label="Pinterest">
 				<title>Pinterest</title>
 				<path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.283 1.194.6 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146 1.124.347 2.317.535 3.554.535 6.624 0 11.99-5.367 11.99-11.987C24.007 5.367 18.641.001 12.017.001z" />
 			</svg>
-			<svg viewBox="0 0 24 24" class="h-4 w-4 fill-current hover:text-slate-700" aria-label="Threads">
+			<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-current hover:text-slate-700" aria-label="Threads">
 				<title>Threads</title>
 				<path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.056 7.164 1.43 1.781 3.63 2.695 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.301-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.21.065-2.376-.218-3.285-.796-1.075-.68-1.708-1.727-1.783-2.95-.148-2.413 1.79-4.15 4.827-4.324a15.4 15.4 0 0 1 2.9.088c-.12-.72-.365-1.29-.734-1.696-.5-.552-1.28-.835-2.315-.84h-.028c-.836 0-1.958.23-2.677 1.326l-1.734-1.19c.964-1.465 2.53-2.271 4.41-2.271h.033c3.16.018 5.04 1.943 5.227 5.29.107.045.213.09.316.138 1.463.687 2.532 1.727 3.09 3.009.78 1.79.85 4.7-1.549 7.058-1.83 1.792-4.05 2.605-7.204 2.628zm.755-10.966c-.253 0-.51.008-.77.024-1.855.106-2.99.976-2.926 2.166.067 1.243 1.408 1.822 2.697 1.752 1.176-.063 2.665-.542 2.916-3.673a12.8 12.8 0 0 0-1.917-.27z" />
 			</svg>
-			<svg viewBox="0 0 24 24" class="h-4 w-4 fill-current hover:text-slate-700" aria-label="YouTube">
+			<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-current hover:text-slate-700" aria-label="YouTube">
 				<title>YouTube</title>
 				<path d="M23.498 6.186a2.994 2.994 0 0 0-2.107-2.117C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.391.524A2.994 2.994 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a2.994 2.994 0 0 0 2.107 2.117c1.886.524 9.391.524 9.391.524s7.505 0 9.391-.524a2.994 2.994 0 0 0 2.107-2.117C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.75 15.5v-7l6.5 3.5-6.5 3.5z" />
 			</svg>
 		</div>
 
-		<div class="flex flex-col items-center gap-3 sm:flex-row sm:justify-between sm:w-full">
+		<div class="flex flex-col items-center gap-1 sm:flex-row sm:justify-between sm:w-full">
 			<p>&copy; 2026 Christian König</p>
-			{userInfoText && <p class="text-slate-500">{userInfoText}</p>}
+			<div class="flex items-center gap-2">
+				{userInfoText && <p class="text-slate-500">{userInfoText}</p>}
+				{trialEndsAtIso && (
+					<p class="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
+						Testphase noch <span id="trial-countdown" data-trial-end={trialEndsAtIso}>...</span>
+					</p>
+				)}
+			</div>
 			<nav aria-label="Rechtliches">
 				<ul class="flex items-center gap-4">
-					<li><a href="mailto:chris@live.at" class="inline-flex min-h-11 items-center hover:text-slate-900 hover:underline">Kontakt</a></li>
-					<li><a href={`${base}impressum`} class="inline-flex min-h-11 items-center hover:text-slate-900 hover:underline">Impressum</a></li>
-					<li><a href={`${base}datenschutz`} class="inline-flex min-h-11 items-center hover:text-slate-900 hover:underline">Datenschutz</a></li>
+					<li><a href="mailto:chris@live.at" class="inline-flex items-center hover:text-slate-900 hover:underline">Kontakt</a></li>
+					<li><a href={`${base}impressum`} class="inline-flex items-center hover:text-slate-900 hover:underline">Impressum</a></li>
+					<li><a href={`${base}datenschutz`} class="inline-flex items-center hover:text-slate-900 hover:underline">Datenschutz</a></li>
 				</ul>
 			</nav>
 		</div>
 	</div>
 </footer>
+
+<script>
+  function formatRemaining(ms: number): string {
+    if (ms <= 0) return 'abgelaufen';
+    const totalMinutes = Math.floor(ms / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours}h ${minutes}min`;
+  }
+
+  const el = document.getElementById('trial-countdown');
+  if (el) {
+    const endTime = new Date(el.dataset.trialEnd || '').getTime();
+    const update = () => {
+      const remaining = endTime - Date.now();
+      el.textContent = formatRemaining(remaining);
+      if (remaining <= 0) location.reload();
+    };
+    update();
+    setInterval(update, 30000);
+  }
+</script>

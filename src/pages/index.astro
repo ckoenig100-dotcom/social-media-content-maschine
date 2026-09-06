@@ -1,20 +1,30 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { getCurrentUser } from '../lib/auth';
-import { supabase, PLATFORMS, getEffectiveSettings, type PlatformSetting, type Profile } from '../lib/supabase';
+import {
+  supabase,
+  PLATFORMS,
+  getEffectiveSettings,
+  getEffectivePlan,
+  isTrialActive,
+  type PlatformSetting,
+  type Profile
+} from '../lib/supabase';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '') + '/';
 const user = await getCurrentUser(Astro.cookies);
 
 let profileName: string | null = null;
 let plan: 'free' | 'paid' = 'free';
+let canStartTrial = false;
 let effective = getEffectiveSettings('free', {});
 
 if (user) {
   const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single();
   const profile = profileData as Profile | null;
   profileName = profile?.name ?? null;
-  plan = profile?.plan ?? 'free';
+  plan = getEffectivePlan(profile);
+  canStartTrial = profile?.plan !== 'paid' && !isTrialActive(profile);
 
   const { data } = await supabase.from('platform_settings').select('*').eq('user_id', user.id);
   const settings = (data ?? []) as PlatformSetting[];
@@ -48,6 +58,14 @@ const platformNamesText =
         Im kostenlosen Plan sind nur LinkedIn und Facebook aktiv. Weitere Plattformen sowie Anzahl und
         Textlänge lassen sich mit einem bezahlten Plan individuell einstellen.
       </p>
+    )}
+
+    {user && canStartTrial && (
+      <div class="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+        Du kannst den bezahlten Plan{' '}
+        <a href={`${base}einstellungen`} class="font-medium underline">in den Einstellungen</a> 24 Stunden
+        lang kostenlos testen, um die Seite mit allen Plattformen auszuprobieren.
+      </div>
     )}
 
     {!user && (

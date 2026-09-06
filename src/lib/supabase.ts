@@ -37,7 +37,22 @@ export interface Profile {
   plan: 'free' | 'paid';
   is_admin: boolean;
   is_superadmin: boolean;
+  trial_ends_at: string | null;
   created_at: string;
+}
+
+export const TRIAL_DURATION_MS = 24 * 60 * 60 * 1000;
+
+export function isTrialActive(profile: Pick<Profile, 'trial_ends_at'> | null): boolean {
+  if (!profile?.trial_ends_at) return false;
+  return new Date(profile.trial_ends_at).getTime() > Date.now();
+}
+
+/** Effektiver Plan unter Berücksichtigung einer laufenden 24h-Testphase. */
+export function getEffectivePlan(profile: Pick<Profile, 'plan' | 'trial_ends_at'> | null): 'free' | 'paid' {
+  if (!profile) return 'free';
+  if (profile.plan === 'paid') return 'paid';
+  return isTrialActive(profile) ? 'paid' : 'free';
 }
 
 export interface PlatformSetting {

@@ -1,7 +1,15 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { getCurrentUser } from '../lib/auth';
-import { supabase, PLATFORMS, DEFAULT_PLATFORM_SETTINGS, type PlatformSetting, type Profile } from '../lib/supabase';
+import {
+  supabase,
+  PLATFORMS,
+  DEFAULT_PLATFORM_SETTINGS,
+  getEffectivePlan,
+  isTrialActive,
+  type PlatformSetting,
+  type Profile
+} from '../lib/supabase';
 
 export const prerender = false;
 
@@ -11,7 +19,9 @@ if (!user) return Astro.redirect(`${base}login`);
 
 const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single();
 const profile = profileData as Profile | null;
-const isPaid = profile?.plan === 'paid';
+const isPaid = getEffectivePlan(profile) === 'paid';
+const trialActive = isTrialActive(profile);
+const canStartTrial = profile?.plan !== 'paid' && !trialActive;
 
 const { data: settingsData } = await supabase.from('platform_settings').select('*').eq('user_id', user.id);
 const settings = (settingsData ?? []) as PlatformSetting[];
@@ -23,18 +33,37 @@ const settingsByPlatform = Object.fromEntries(settings.map((s) => [s.platform, s
   <div class="mx-auto max-w-2xl">
     <h1 class="text-2xl font-semibold tracking-tight">Plattform-Einstellungen</h1>
 
-    {isPaid ? (
+    {isPaid && (
       <p class="mt-1 text-sm text-slate-500">
         Aktiviere die Plattformen, für die Content generiert werden soll, und lege Anzahl sowie Textlänge fest.
         Deaktivierte Plattformen (oder Anzahl 0) werden bei der Generierung übersprungen.
       </p>
-    ) : (
+    )}
+
+    {trialActive && (
+      <div class="mt-6 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+        Deine 24-Stunden-Testphase des bezahlten Plans ist aktiv — die Restlaufzeit siehst du in der Fußzeile.
+      </div>
+    )}
+
+    {!isPaid && (
       <div class="mt-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
         <p>
           Im kostenlosen Plan generierst du automatisch Posts für <strong>LinkedIn und Facebook</strong> —
           eine Auswahl weiterer Plattformen sowie das Anpassen von Anzahl und Textlänge ist nicht möglich.
         </p>
         <p class="mt-2">Mit einem bezahlten Plan kannst du alle 8 Plattformen frei aktivieren und individuell konfigurieren.</p>
+        {canStartTrial && (
+          <>
+            <button
+              id="start-trial-btn"
+              class="mt-3 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+            >
+              Bezahlten Plan 24 Stunden gratis testen
+            </button>
+            <p id="trial-status" class="mt-2 hidden text-sm"></p>
+          </>
+        )}
       </div>
     )}
 
@@ -108,6 +137,33 @@ const settingsByPlatform = Object.fromEntries(settings.map((s) => [s.platform, s
 </Layout>
 
 <script define:vars={{ platforms: PLATFORMS, base }}>
+  const trialBtn = document.getElementById('start-trial-btn');
+  const trialStatusEl = document.getElementById('trial-status');
+
+  trialBtn?.addEventListener('click', async () => {
+    trialBtn.disabled = true;
+    trialBtn.textContent = 'Wird aktiviert...';
+
+    const res = await fetch(`${base}api/start-trial`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      location.reload();
+    } else {
+      trialBtn.disabled = false;
+      trialBtn.textContent = 'Bezahlten Plan 24 Stunden gratis testen';
+      if (trialStatusEl) {
+        trialStatusEl.classList.remove('hidden');
+        trialStatusEl.className = 'mt-2 text-sm text-red-700';
+        trialStatusEl.textContent = data.error || 'Fehler beim Aktivieren.';
+      }
+    }
+  });
+
   const form = document.getElementById('settings-form');
   const saveBtn = document.getElementById('save-btn');
   const statusEl = document.getElementById('status');

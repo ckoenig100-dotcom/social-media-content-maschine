@@ -1,7 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { getCurrentUser } from '../lib/auth';
-import { supabase, type Profile } from '../lib/supabase';
+import { supabase, isTrialActive, type Profile } from '../lib/supabase';
 
 export const prerender = false;
 
@@ -63,6 +63,11 @@ const users = (data ?? []) as Profile[];
                   >
                     {u.plan === 'paid' ? 'Bezahlt' : 'Kostenlos'}
                   </span>
+                  {isTrialActive(u) && (
+                    <span class="ml-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                      Testphase
+                    </span>
+                  )}
                   {canChangePlan && (
                     <button
                       data-user-id={u.id}

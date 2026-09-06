@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getCurrentUser } from '../../lib/auth';
-import { supabase, PLATFORMS, getEffectiveSettings, type PlatformSetting, type Profile } from '../../lib/supabase';
+import { supabase, PLATFORMS, getEffectiveSettings, getEffectivePlan, type PlatformSetting, type Profile } from '../../lib/supabase';
 
 export const prerender = false;
 
@@ -28,7 +28,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const webhookUrl = import.meta.env.PUBLIC_GENERATE_CONTENT_WEBHOOK_URL;
 
   const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-  const plan = (profileData as Profile | null)?.plan ?? 'free';
+  const plan = getEffectivePlan(profileData as Profile | null);
 
   const { data: settingsData } = await supabase.from('platform_settings').select('*').eq('user_id', user.id);
   const settings = (settingsData ?? []) as PlatformSetting[];

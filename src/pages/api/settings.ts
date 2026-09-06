@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getCurrentUser } from '../../lib/auth';
-import { supabase, PLATFORMS } from '../../lib/supabase';
+import { supabase, PLATFORMS, getEffectivePlan, type Profile } from '../../lib/supabase';
 
 export const prerender = false;
 
@@ -13,8 +13,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     });
   }
 
-  const { data: profile } = await supabase.from('profiles').select('plan').eq('id', user.id).single();
-  if (profile?.plan !== 'paid') {
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+  if (getEffectivePlan(profile as Profile | null) !== 'paid') {
     return new Response(
       JSON.stringify({ success: false, error: 'Das Anpassen der Parameter ist nur im bezahlten Plan möglich.' }),
       { status: 403, headers: { 'Content-Type': 'application/json' } }
