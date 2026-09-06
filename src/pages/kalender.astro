@@ -161,6 +161,9 @@ const filters: { label: string; value: Status | null }[] = [
                     Geplant für: {new Date(post.geplant_fuer).toLocaleDateString('de-DE')}
                   </p>
                 )}
+                <p class="mt-1 text-xs text-slate-400">
+                  Erfasst am: {new Date(post.created_at).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })}
+                </p>
 
                 {post.status === 'Entwurf' && (
                   <div class="mt-3 flex items-center gap-2">

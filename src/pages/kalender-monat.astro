@@ -69,6 +69,12 @@ const platformColors: Record<string, string> = {
   YouTube: 'bg-rose-100 text-rose-700'
 };
 
+const statusColors: Record<string, string> = {
+  Entwurf: 'bg-amber-50 text-amber-700 border-amber-200',
+  Freigegeben: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  Veröffentlicht: 'bg-slate-900 text-white border-slate-900'
+};
+
 const todayKey = today.toISOString().slice(0, 10);
 ---
 
@@ -125,13 +131,15 @@ const todayKey = today.toISOString().slice(0, 10);
                     </div>
                     <div class="space-y-1">
                       {dayPosts.map((post) => (
-                        <div
-                          class={`truncate rounded px-1.5 py-0.5 text-[11px] font-medium ${platformColors[post.plattform] ?? 'bg-slate-100 text-slate-700'}`}
+                        <button
+                          type="button"
+                          data-post-id={post.id}
+                          class={`post-pill block w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium hover:opacity-80 ${platformColors[post.plattform] ?? 'bg-slate-100 text-slate-700'}`}
                           title={post.text}
                         >
                           {post.plattform}: {post.text.slice(0, 24)}
                           {post.text.length > 24 ? '…' : ''}
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </>
@@ -143,4 +151,95 @@ const todayKey = today.toISOString().slice(0, 10);
       </div>
     </div>
   </div>
+
+  <div
+    id="post-modal"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4"
+  >
+    <div class="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5 shadow-xl">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <span id="modal-plattform" class="rounded-full border px-2.5 py-0.5 text-xs font-medium"></span>
+          <span id="modal-status" class="rounded-full border px-2.5 py-0.5 text-xs font-medium"></span>
+        </div>
+        <button type="button" id="modal-close" class="text-slate-400 hover:text-slate-700" aria-label="Schließen">✕</button>
+      </div>
+      <p id="modal-text" class="mt-4 whitespace-pre-line text-sm leading-relaxed text-slate-800"></p>
+      <p id="modal-hashtags" class="mt-3 text-xs text-slate-400"></p>
+      <p id="modal-kunde" class="mt-1 text-xs text-slate-400"></p>
+      <div class="mt-4 space-y-1 border-t border-slate-100 pt-3 text-xs text-slate-500">
+        <p id="modal-geplant"></p>
+        <p id="modal-erstellt"></p>
+      </div>
+    </div>
+  </div>
 </Layout>
+
+<script define:vars={{
+  posts: posts.map((p) => ({
+    id: p.id,
+    plattform: p.plattform,
+    text: p.text,
+    hashtags: p.hashtags,
+    status: p.status,
+    kunde: p.kunde,
+    geplant_fuer: p.geplant_fuer,
+    created_at: p.created_at
+  })),
+  platformColors,
+  statusColors
+}}>
+  const postsById = Object.fromEntries(posts.map((p) => [p.id, p]));
+
+  const modal = document.getElementById('post-modal');
+  const modalPlattform = document.getElementById('modal-plattform');
+  const modalStatus = document.getElementById('modal-status');
+  const modalText = document.getElementById('modal-text');
+  const modalHashtags = document.getElementById('modal-hashtags');
+  const modalKunde = document.getElementById('modal-kunde');
+  const modalGeplant = document.getElementById('modal-geplant');
+  const modalErstellt = document.getElementById('modal-erstellt');
+
+  function formatDateTime(iso) {
+    if (!iso) return null;
+    return new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  function openModal(post) {
+    modalPlattform.textContent = post.plattform;
+    modalPlattform.className = `rounded-full border px-2.5 py-0.5 text-xs font-medium ${platformColors[post.plattform] || 'bg-slate-100 text-slate-700'}`;
+    modalStatus.textContent = post.status;
+    modalStatus.className = `rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusColors[post.status] || ''}`;
+    modalText.textContent = post.text;
+    modalHashtags.textContent = post.hashtags || '';
+    modalHashtags.classList.toggle('hidden', !post.hashtags);
+    modalKunde.textContent = post.kunde ? `Kunde: ${post.kunde}` : '';
+    modalKunde.classList.toggle('hidden', !post.kunde);
+    modalGeplant.textContent = post.geplant_fuer
+      ? `Geplant für: ${new Date(post.geplant_fuer).toLocaleDateString('de-DE')}`
+      : '';
+    modalErstellt.textContent = `Erfasst am: ${formatDateTime(post.created_at)}`;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function closeModal() {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  document.querySelectorAll('.post-pill').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const post = postsById[btn.dataset.postId];
+      if (post) openModal(post);
+    });
+  });
+
+  document.getElementById('modal-close')?.addEventListener('click', closeModal);
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+</script>
